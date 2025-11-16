@@ -1,0 +1,122 @@
+The **Advanced eXtensible Interface (AXI)** protocol is a key standard in the ARM **Advanced Microcontroller Bus Architecture (AMBA)** family, designed for high-performance, high-frequency, on-chip communication.
+
+**AXI4-Lite** is a simplified, lower-throughput subset of the main AXI4 protocol. It's specifically tailored for communication with **control and status registers (CSRs)** in peripheral devices, where simple, single-transfer, memory-mapped access is sufficient. The primary difference is that **AXI4-Lite does not support burst transfers**, meaning every address phase is followed by exactly one data transfer.
+
+---
+
+## 5 AXI Channels and Their Ports (AXI4-Lite)
+
+The AXI protocol, including AXI4-Lite, is based on **five independent channels** for data and address transfer, allowing parallel operation (reads and writes can happen simultaneously). All transfers use a basic two-way flow control mechanism consisting of a $\text{VALID}/\text{READY}$ handshake.
+
+### 1. Global Signals (Clock and Reset)
+
+These signals are common to the entire interface.
+
+| Signal | Direction | Description |
+| :--- | :--- | :--- |
+| $\text{ACLK}$ | Input | The **global clock signal**. All signals are sampled on the rising edge of $\text{ACLK}$. |
+| $\text{ARESETn}$ | Input | The **global reset signal**. It is **active-low** and synchronous to $\text{ACLK}$. |
+
+### 2. Write Address Channel (AW)
+
+The **Master** uses this channel to provide the starting address and control information for a write transaction to the **Slave**.
+
+| Signal | Master $\to$ Slave (Output) | Slave $\to$ Master (Input) | Description |
+| :--- | :--- | :--- | :--- |
+| $\text{AWADDR}$ | $\mathbf{X}$ | | **Write Address**: The base address for the write transfer. |
+| $\text{AWVALID}$ | $\mathbf{X}$ | | **Write Address Valid**: Master asserts this when $\text{AWADDR}$ and control signals are valid. |
+| $\text{AWREADY}$ | | $\mathbf{X}$ | **Write Address Ready**: Slave asserts this when it can accept the address information. |
+| $\text{AWPROT}$ | $\mathbf{X}$ | | **Protection Type**: Indicates the privilege (user/privileged) and security level (secure/non-secure) of the transaction. |
+
+### 3. Write Data Channel (W)
+
+The **Master** uses this channel to transfer the actual data to the **Slave**. In AXI4-Lite, this is always a single data transfer.
+
+| Signal | Master $\to$ Slave (Output) | Slave $\to$ Master (Input) | Description |
+| :--- | :--- | :--- | :--- |
+| $\text{WDATA}$ | $\mathbf{X}$ | | **Write Data**: The data to be written to the slave. (32 or 64 bits wide in AXI4-Lite). |
+| $\text{WSTRB}$ | $\mathbf{X}$ | | **Write Strobes**: A byte enable signal. One bit per byte of $\text{WDATA}$. It determines which bytes within the $\text{WDATA}$ word are valid and should be written. |
+| $\text{WVALID}$ | $\mathbf{X}$ | | **Write Valid**: Master asserts this when $\text{WDATA}$ and $\text{WSTRB}$ are valid. |
+| $\text{WREADY}$ | | $\mathbf{X}$ | **Write Ready**: Slave asserts this when it can accept the write data. |
+
+### 4. Write Response Channel (B)
+
+The **Slave** uses this channel to signal the **Master** that the write transaction has completed and to communicate its status (e.g., success or error).
+
+| Signal | Master $\to$ Slave (Output) | Slave $\to$ Master (Input) | Description |
+| :--- | :--- | :--- | :--- |
+| $\text{BRESP}$ | | $\mathbf{X}$ | **Write Response**: Two-bit response code ($\text{OKAY}$, $\text{SLVERR}$, etc.). |
+| $\text{BVALID}$ | | $\mathbf{X}$ | **Write Response Valid**: Slave asserts this when $\text{BRESP}$ is valid. |
+| $\text{BREADY}$ | $\mathbf{X}$ | | **Write Response Ready**: Master asserts this when it is ready to accept the response. |
+
+### 5. Read Address Channel (AR)
+
+The **Master** uses this channel to provide the starting address and control information for a read transaction to the **Slave**.
+
+| Signal | Master $\to$ Slave (Output) | Slave $\to$ Master (Input) | Description |
+| :--- | :--- | :--- | :--- |
+| $\text{ARADDR}$ | $\mathbf{X}$ | | **Read Address**: The base address for the read transfer. |
+| $\text{ARVALID}$ | $\mathbf{X}$ | | **Read Address Valid**: Master asserts this when $\text{ARADDR}$ and control signals are valid. |
+| $\text{ARREADY}$ | | $\mathbf{X}$ | **Read Address Ready**: Slave asserts this when it can accept the address information. |
+| $\text{ARPROT}$ | $\mathbf{X}$ | | **Protection Type**: Indicates the privilege and security level of the transaction. |
+
+### 6. Read Data Channel (R)
+
+The **Slave** uses this channel to transfer the requested data back to the **Master**. In AXI4-Lite, this is always a single data transfer.
+
+| Signal | Master $\to$ Slave (Output) | Slave $\to$ Master (Input) | Description |
+| :--- | :--- | :--- | :--- |
+| $\text{RDATA}$ | | $\mathbf{X}$ | **Read Data**: The data returned from the slave. (32 or 64 bits wide in AXI4-Lite). |
+| $\text{RRESP}$ | | $\mathbf{X}$ | **Read Response**: Two-bit response code for the read data (e.g., $\text{OKAY}$, $\text{SLVERR}$). |
+| $\text{RVALID}$ | | $\mathbf{X}$ | **Read Valid**: Slave asserts this when $\text{RDATA}$ and $\text{RRESP}$ are valid. |
+| $\text{RREADY}$ | $\mathbf{X}$ | | **Read Ready**: Master asserts this when it is ready to accept the read data and response. |
+
+---
+
+## The Core Handshake Mechanism ($\text{VALID}/\text{READY}$)
+
+All five channels use the same fundamental handshake:
+
+1.  **Source asserts $\mathbf{xVALID}$**: The component sending information (Master for addresses/write data, Slave for read data/write response) asserts its $\mathbf{VALID}$ signal ($\text{AWVALID}$, $\text{WVALID}$, $\text{ARVALID}$, $\text{BVALID}$, or $\text{RVALID}$) to indicate that the payload on the bus is valid and ready to be transferred. The source **must not** wait for $\text{xREADY}$ before asserting $\text{xVALID}$.
+2.  **Destination asserts $\mathbf{xREADY}$**: The component receiving the information (Slave for addresses/write data, Master for read data/write response) asserts its $\mathbf{READY}$ signal ($\text{AWREADY}$, $\text{WREADY}$, $\text{ARREADY}$, $\text{BREADY}$, or $\text{RREADY}$) to indicate it is capable of receiving the information. The destination **can** wait for $\text{xVALID}$ before asserting $\text{xREADY}$.
+3.  **Transfer Completion**: The transfer is complete on the rising edge of $\text{ACLK}$ where **both $\mathbf{xVALID}$ and $\mathbf{xREADY}$ are asserted (high)**.
+
+---
+
+## AXI4-Lite Transaction Flow
+
+### 1. Write Transaction (Master $\to$ Slave)
+
+A write transaction involves three channels: Write Address (AW), Write Data (W), and Write Response (B). The address and data transfers are independent and can happen in any order, or in parallel.
+
+* **Address Phase (AW):**
+    1.  Master drives $\text{AWADDR}$ and $\text{AWPROT}$ and asserts $\text{AWVALID}$.
+    2.  Slave asserts $\text{AWREADY}$ when ready.
+    3.  Handshake occurs ($\text{AWVALID}$ and $\text{AWREADY}$ both high). The slave latches the address.
+* **Data Phase (W):**
+    1.  Master drives $\text{WDATA}$ and $\text{WSTRB}$ and asserts $\text{WVALID}$.
+    2.  Slave asserts $\text{WREADY}$ when ready.
+    3.  Handshake occurs ($\text{WVALID}$ and $\text{WREADY}$ both high). The slave latches the data.
+* **Response Phase (B):**
+    1.  After **both** the address and data handshakes have completed, the Slave processes the write and drives the status on $\text{BRESP}$, asserting $\text{BVALID}$.
+    2.  Master asserts $\text{BREADY}$ when it is ready to accept the response.
+    3.  Handshake occurs ($\text{BVALID}$ and $\text{BREADY}$ both high). The transaction is complete.
+
+### 2. Read Transaction (Master $\to$ Slave $\to$ Master)
+
+A read transaction involves two channels: Read Address (AR) and Read Data (R).
+
+* **Address Phase (AR):**
+    1.  Master drives $\text{ARADDR}$ and $\text{ARPROT}$ and asserts $\text{ARVALID}$. The master may also assert $\text{RREADY}$ early to indicate it's ready for the data.
+    2.  Slave asserts $\text{ARREADY}$ when ready.
+    3.  Handshake occurs ($\text{ARVALID}$ and $\text{ARREADY}$ both high). The slave latches the address and begins fetching the data.
+* **Data Phase (R):**
+    1.  Once the Slave has the requested data, it drives $\text{RDATA}$ and $\text{RRESP}$, asserting $\text{RVALID}$.
+    2.  Master asserts $\text{RREADY}$ when it is ready to accept the data and response.
+    3.  Handshake occurs ($\text{RVALID}$ and $\text{RREADY}$ both high). The master latches the data, and the read transaction is complete.
+
+---
+
+Would you like a more detailed explanation of the **timing diagram** for a specific transaction (Read or Write)?
+
+https://www.realdigital.org/doc/6cb4e88c145c960ad199be9fac5e9402
