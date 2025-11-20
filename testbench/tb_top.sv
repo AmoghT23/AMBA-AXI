@@ -1,4 +1,4 @@
-// tb top 
+// tb top
 
 `timescale 1ns/1ps
 import hook::*;
@@ -76,6 +76,21 @@ module tb_top;
 
     .CTRL(CTRL)
   );
+
+  // ----------------------------
+  // SLAVE BEHAVIOR (simple mock)
+  // ----------------------------
+  always @(*) begin
+    AWREADY = 1;
+    WREADY  = 1;
+    BVALID  = AWVALID & WVALID;   // respond to write
+    BRESP   = 2'b00;              // OKAY
+
+    ARREADY = 1;
+    RVALID  = ARVALID;            // respond to read
+    RRESP   = 2'b00;
+    RDATA   = 32'hCAFEBABE;       // fixed read data
+  end
 
 
 
