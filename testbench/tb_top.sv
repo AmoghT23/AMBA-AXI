@@ -78,7 +78,7 @@ module tb_top;
   );
 
   // ----------------------------
-  // SLAVE BEHAVIOR (simple mock)
+  // SLAVE BEHAVIOR 
   // ----------------------------
   always @(*) begin
     AWREADY = 1;
