@@ -8,12 +8,12 @@ module address_read_mn;
   
   initial 
     begin
-    
+
+    @(posedge ARESETn);
     axi_if.ARADDR = 32'hffffffff;       
     axi_if.ARREADY = 0;
     axi_if.ARVALID = 1;
-    
-    @(posedge ARESETn);
+  
     
   @(posedge ACLK);
   #5 axi_if.ARREADY = 1'b0;         //Master sends ARVALID but Slave is not ready
