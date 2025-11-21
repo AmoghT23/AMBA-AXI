@@ -1,0 +1,35 @@
+module address_read_mn;
+  
+  logic ACLK, ARESETn;
+  
+  axi4_if axi_if(.ACLK(ACLK), .ARESETn(ARESETn)); // ****Instantiating the Interface axi4_if
+  
+  address_read_mn uut(.bus_ports(axi_if.manager_mp)); // Connect DUT using modport
+  
+  initial 
+    begin
+    
+    axi_if.ARADDR = 32'hffffffff;       
+    axi_if.ARREADY = 0;
+    axi_if.ARVALID = 1;
+    
+    @(posedge ARESETn);
+    
+  @(posedge ACLK);
+  #5 axi_if.ARREADY = 1'b0;         //Master sends ARVALID but Slave is not ready
+     axi_if.ARVALID = 1'b1;
+  
+  @(posedge ACLK);                  // Slave still not ready
+  #5 axi_if.ARREADY = 1'b0; 
+  
+  @(posedge ACLK);                  // Slave ready handshake occurs 
+  #5 axi_if.ARREADY = 1'b1; 
+  
+  @(posedge ACLK);
+  #5 axi_if.ARREADY = 1'b0;         // desassert after the handshake is complete 
+     axi_if.ARVALID = 1'b0;
+
+  #20;
+  $finish;
+  end 
+endmodule
