@@ -20,10 +20,12 @@ module address_read_mn;
      axi_if.ARVALID = 1'b1;
   
   @(posedge ACLK);                  // Slave still not ready
-  #5 axi_if.ARREADY = 1'b0; 
+  #5 axi_if.ARREADY = 1'b0;
+     axi_if.ARVALID = 1'b0;
   
   @(posedge ACLK);                  // Slave ready handshake occurs 
-  #5 axi_if.ARREADY = 1'b1; 
+  #5 axi_if.ARREADY = 1'b1;
+     axi_if.ARVALID = 1'b1;
   
   @(posedge ACLK);
   #5 axi_if.ARREADY = 1'b0;         // desassert after the handshake is complete 
