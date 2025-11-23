@@ -36,3 +36,12 @@ The testbench for writes:
 - **Multiple writes to different addresses**  
   - Checks that the subordinate can accept multiple independent write transactions.
 
+// Self Check Testbench for read
+
+The communication for a read operation involves two distinct channels: the Read Address Channel (AR) and the Read Data Channel (R). 
+The manager initiates the transaction, and the subordinate responds, adhering to the standard AXI handshake principle (VALID and READY).
+
+*** Tested on 3 Scenarios
+1. Basic Read Check (Mapped Address)
+2. Read Decode Error Check
+3. Sequential Read Accesses
