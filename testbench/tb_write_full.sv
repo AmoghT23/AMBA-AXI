@@ -1,3 +1,12 @@
+/*
+Here write will act as master driving axi4_if.manager signals manually.
+
+AW (address) → W (data) → B (response)
+
+Checks BRESP against OKAY/SLVERR/DECERR.
+
+*/
+
 `timescale 1ns/1ps
 
 module tb_write_full;
