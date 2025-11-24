@@ -1,7 +1,7 @@
-// tb top
-
 `timescale 1ns/1ps
-import hook::*;
+
+`include "tb_axi_lite_write.sv"
+`include "tb_axi_lite_read.sv"
 
 module tb_top;
 
@@ -10,88 +10,50 @@ module tb_top;
   logic ARESETn;
 
   initial begin
-    ACLK = 0;
-    forever #5 ACLK = ~ACLK;   // 100 MHz
+      ACLK = 0;
+      forever #5 ACLK = ~ACLK;
   end
 
   initial begin
-    ARESETn = 0;
-    repeat (4) @(posedge ACLK);
-    ARESETn = 1;
+      ARESETn = 0;
+      repeat (4) @(posedge ACLK);
+      ARESETn = 1;
   end
 
-  // ----------------------------
-  // Master <-> Slave signals
-  // ----------------------------
+  // AXI Interface + DUT
+  axi4_if #(32,64,4) axi_if (.ACLK(ACLK), .ARESETn(ARESETn));
+  axi_subordinate dut (.s(axi_if.subordinate_mp));
 
-  // AW channel
-  logic [31:0] AWADDR;
-  logic        AWVALID, AWREADY;
+  // Storage for readback
+  logic [63:0] wdata, rdata;
 
-  // W channel
-  logic [31:0] WDATA;
-  logic        WVALID, WREADY;
+  initial begin
+      @(posedge ARESETn);
 
-  // B channel
-  logic [1:0]  BRESP;
-  logic        BVALID, BREADY;
+      $display("============== AXI4-LITE TOP TEST START ==============\n");
 
-  // AR channel
-  logic [31:0] ARADDR;
-  logic        ARVALID, ARREADY;
+      // --------------------------------------------------------
+      // WRITE TEST
+      // --------------------------------------------------------
+      wdata = 64'hABCD_EF12_3456_7890;
+      axi_lite_write(4'd1, 32'h0000_0020, wdata);
 
-  // R channel
-  logic [31:0] RDATA;
-  logic [1:0]  RRESP;
-  logic        RVALID, RREADY;
+      // --------------------------------------------------------
+      // READ TEST
+      // --------------------------------------------------------
+      axi_lite_read(4'd1, 32'h0000_0020, rdata);
 
-  // Hook struct input to master
-  hook_t CTRL;
+      // --------------------------------------------------------
+      // COMPARE RESULTS
+      // --------------------------------------------------------
+      if (rdata !== wdata)
+          $error("[TOP] READBACK MISMATCH: expected=%h got=%h", wdata, rdata);
+      else
+          $display("[TOP] READBACK MATCH OK!");
 
-  // ----------------------------
-  // Instantiate Master DUT
-  // ----------------------------
-  master dut (
-    .ACLK(ACLK),
-    .ARESETn(ARESETn),
+      $display("\n============== AXI4-LITE TOP TEST END =================\n");
 
-    .RDATA(RDATA),
-    .BRESP(BRESP),
-
-    .AWREADY(AWREADY),
-    .WREADY(WREADY),
-    .BVALID(BVALID),
-    .ARREADY(ARREADY),
-    .RVALID(RVALID),
-
-    .AWVALID(AWVALID),
-    .WVALID(WVALID),
-    .BREADY(BREADY),
-    .ARVALID(ARVALID),
-    .RREADY(RREADY),
-
-    .AWADDR(AWADDR),
-    .ARADDR(ARADDR),
-    .WDATA(WDATA),
-
-    .CTRL(CTRL)
-  );
-
-  // ----------------------------
-  // SLAVE BEHAVIOR 
-  // ----------------------------
-  always @(*) begin
-    AWREADY = 1;
-    WREADY  = 1;
-    BVALID  = AWVALID & WVALID;   // respond to write
-    BRESP   = 2'b00;              // OKAY
-
-    ARREADY = 1;
-    RVALID  = ARVALID;            // respond to read
-    RRESP   = 2'b00;
-    RDATA   = 32'hCAFEBABE;       // fixed read data
+      #40 $finish;
   end
-
-
 
 endmodule
