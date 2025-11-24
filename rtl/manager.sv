@@ -1,7 +1,7 @@
-import hook::*;
+import axi_helper::*;
 module manager(	
-	axi4_if.manager_mp bus_ports,
-	input hook_t CTRL;					//****<<<<< use this to control internals of master
+	axi4_if.manager_mp bus,
+	TB_if.manager tb					//****<<<<< use this to control internals of master
 	);
 	localparam DATA_W = axi4_if.DATA_W;			//pull in DATA_W
 	localparam ADDR_W = axi4_if.ADDR_W;			//pull in ADDR_W
@@ -12,67 +12,79 @@ module manager(
 	logic [4:0] data_flag;				//data flag register notifies if new data present on channel latch (if RX)
 	input logic [1:0] bresp_l;
 	logic zero;
-	logic [7:0] AW_byte, W_byte, AR_byte, R_Byte;
 	
-BURST_DATA = DATA_W/8;						//todo:parse data into 8 bits and feed into channels
-BURST_ADDR = ADDR_W/8;
+	resp_t rx_bresp, rx_rresp;
+	assign zero  = 1'b0;
 	
-	TX_channel AW #(WIDTH(8))(				//Write DATA
-		.*,						// aCLK, ARESETn,
-	 	.READY(AWREADY),
-	 	.VALID(AWVALID),
-	 	.xDATA(AWADDR),
+	/*============= AW CHANNEL =============*/
+	TX_channel AW #(.WIDTH(ADDR_W))(				
+		.ACLK(bus.ACLK),
+		.ARESETn(bus.ARESETn),
+	 	.READY(bus.AWREADY),				//TOP 5 IS ON THE BUS
+	 	.VALID(bus.AWVALID),
+	 	.xDATA(bus.AWADDR),
 	 	
-	 	.tx_data(CTRL.addr_AW),
-	 	.tx_en(CTRL.opcode[4]),
-	 	.tx_hold()					// 1: HOLD data for subordinate not ready( basically ~READY)
+	 	.tx_data(tb.mgr_tx_AW),				//BOTTOM 3 IS interface with parent module
+	 	.tx_en(tb.tx_en[4]),
+	 	.tx_hold()					// 1: HOLD data for subordinate not ready( it is just ~READY)
 	);
-	TX_channel W #(WIDTH(8))(				//Write DATA	
-		.*,						// aCLK, ARESETn,
-	 	.READY(WREADY),
-	 	.VALID(WVALID),
-	 	.xDATA(WDATA),
+	/*============= W CHANNEL =============*/
+	TX_channel W #(.WIDTH(DATA_W))(					
+		.ACLK(bus.ACLK),
+		.ARESETn(bus.ARESETn),						
+	 	.READY(bus.WREADY),
+	 	.VALID(bus.WVALID),
+	 	.xDATA(bus.WDATA),
 	 	
-	 	.tx_data(CTRL.data_W),
-	 	.tx_en(CTRL.opcode[3]),
+	 	.tx_data(tb.mgr_tx_W),
+	 	.tx_en(tb.tx_en[3]),
 	 	.tx_hold()
 	);
-	RX_channel B #(WIDTH(2))(				//write confirmation channel B
-		.*,						// aCLK, ARESETn,
-	 	.READY(BREADY),
-		.VALID(BVALID),
-		.xDATA(BRESP),
+	/*============= B CHANNEL =============*/
+	RX_channel B #(.WIDTH(2))(				//write confirmation channel B
+		.ACLK(bus.ACLK),
+		.ARESETn(bus.ARESETn),						// aCLK, ARESETn,
+	 	.READY(bus.BREADY),
+		.VALID(bus.BVALID),
+		.xDATA(bus.BRESP),
 		
-		.rx_data(bresp_l),				//data recieved
-	 	.rx_new_data(data_flag[2]),			//let module know if there is new data
+		.rx_data(tb.mgr_bresp),				//data recieved
+	 	.rx_new_data(tb.new_data[2]),			//let module know if there is new data
 		.rx_hold(zero),					//if there is data on data_flag[2] put it in memory
 	);							//we dont care about storing so keep mem_busy = 0
-	TX_channel AR #(WIDTH(8))(				//READ address DATA
-		.*,						// aCLK, ARESETn,
-	 	.READY(ARREADY),
-	 	.VALID(ARVALID),
-	 	.xDATA(ARADDR),
+	/*============= AR CHANNEL =============*/
+	TX_channel AR #(.WIDTH(ADDR_W))(				
+		.ACLK(bus.ACLK),
+		.ARESETn(bus.ARESETn),						
+	 	.READY(bus.ARREADY),
+	 	.VALID(bus.ARVALID),
+	 	.xDATA(bus.ARADDR),
 	 	
-	 	.tx_data(CTRL.addr_AR),
-	 	.tx_en(CTRL.opcode[1]),
+	 	.tx_data(tb.mgr_tx_AR),
+	 	.tx_en(tb.tx_en[1]),
 	 	.tx_hold()
 	);
-	RX_channel R #(WIDTH(8))(				//Read channel 
-		.*,						// aCLK, ARESETn,
-	 	.READY(RREADY),
-		.VALID(RVALID),
-		.xDATA(RDATA),
+	/*============= R CHANNEL =============*/
+	RX_channel R #(.WIDTH(DATA_W))(			
+		.ACLK(bus.ACLK),
+		.ARESETn(bus.ARESETn),						
+	 	.READY(bus.RREADY),
+		.VALID(bus.RVALID),
+		.xDATA(bus.RDATA),
 		
-		.rx_data(data_R),				//W_okay checks if the write is good
-	 	.rx_new_data(data_flag[0]),			//tells if we have some new data
-		.rx_hold(mem_flag[0]),				
+		.rx_data(tb.mgr_rx_R),				
+	 	.rx_new_data(tb.new_data[0]),			
+		.rx_hold(tb.mem_flag[0]),				
 	);
 	
 	//reset is handled in RX/TX modules where states are set to idle Valid = 0/ready =1
+	
+endmodule
 
+/*
 	Mem_Manager_Write R_service #(					//This module not yet tested
-		LEN_ADDR(10),
-		LEN_DATA(DATA_W) 
+		.LEN_ADDR(10),
+		.LEN_DATA(DATA_W) 
 		)(							//master has 11 addr and slave has 10, cs of which slave is the 11th address
 		.*,							//aCLK,ARESETn,
 		.ADDR(CTRL.addr_AR[4:0]),				//take the bottom 32 bit→ SET/INDEX we'll just overwirte data in cache
@@ -81,7 +93,4 @@ BURST_ADDR = ADDR_W/8;
 		.memory(cache),						//*** passes whole memory maybe better to pass by refference?
 		.MEM_BUSY(mem_flag[0])
 	);
-	always_comb
-		zero = 0;
-	
-endmodule
+*/

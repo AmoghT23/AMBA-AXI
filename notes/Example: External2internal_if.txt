@@ -1,0 +1,34 @@
+module main_module (
+    // Port: Restricted view of external bus
+    my_bus_if.MASTER bus_in
+);
+    // Local Instance: Full access internal bus
+    my_bus_if internal_bus();
+
+    // **********************************************
+    // Explicit Assignments to connect the two bundles
+    // **********************************************
+
+    // 1. Clock and Reset (Crucial for synchronization)
+    assign internal_bus.clk   = bus_in.clk;
+    assign internal_bus.reset = bus_in.reset;
+
+    // 2. Data and Control Signals (Example)
+    // Assuming 'data' flows from external to internal:
+    assign internal_bus.data  = bus_in.data;
+
+    // Assuming 'valid' flows from internal to external (e.g., status signal)
+    assign bus_in.valid = internal_bus.valid;
+    
+    // **********************************************
+    // Submodule Connections (as before)
+
+    producer_submodule u_producer (
+        .bus_port (internal_bus.PRODUCER)
+    );
+
+    consumer_submodule u_consumer (
+        .bus_port (internal_bus.CONSUMER)
+    );
+
+endmodule
