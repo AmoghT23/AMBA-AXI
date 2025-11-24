@@ -32,7 +32,7 @@ module TX_channel #(parameter WIDTH=8)(			//control signal between master and sl
 				
 			HOLD:	begin
 				
-				if (~READY) begin
+				if (!READY) begin
 					next_state = HOLD;	//hold the data until reciever ready
 				end
 				if (READY) begin		//This beat data transfer good
@@ -47,9 +47,9 @@ module TX_channel #(parameter WIDTH=8)(			//control signal between master and sl
 								//RX READY passed to data source
 	
 	always_ff @ (posedge ACLK, negedge ARESETn) begin 
-		if (ARESETn) begin
-			state <= next_state;
+		if (!ARESETn) begin
+			state <= IDLE; 
 		end
-		else state <= IDLE;
+		else state <= next_state;
 	end
 endmodule

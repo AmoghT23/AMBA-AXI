@@ -22,7 +22,7 @@ module RX_channel #(parameter WIDTH =8)(			//control signal between master and s
 				end
 			HOLD:	begin 				//reciever not ready
 				READY=0;			//stop recieving new data /latch full			
-				if (~rx_hold) begin		//when data from latch→ memory then transfer ends.
+				if (!rx_hold) begin		//when data from latch→ memory then transfer ends.
 					next_state = IDLE;	//wait until data is put in memory
 					
 				end
@@ -34,17 +34,18 @@ module RX_channel #(parameter WIDTH =8)(			//control signal between master and s
 	always_ff @ (negedge rx_hold) rx_new_data <= 0;		//handshake within upper module, not on AXI bus
 		
 	always_ff @ (posedge ACLK, negedge ARESETn) begin 
-		if (ARESETn) begin
+		if (!ARESETn) begin
+			state <= IDLE;
+			rx_new_data <= 0;
+			
+			
+		end
+		else begin
 			state <= next_state;
 			if (VALID && READY) begin
 			rx_data <= xDATA;		//must happen on ready & valid clkedge, HOLD cycle 1 clk is after
 			rx_new_data <= 1;		//new data, let upper module know to put in memory
 			end
-			
-		end
-		else begin
-			state <= IDLE;
-			rx_new_data <= 0;
 		end
 	end
 endmodule

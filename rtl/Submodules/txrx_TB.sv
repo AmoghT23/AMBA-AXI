@@ -24,7 +24,7 @@ module txrx_TB;
 	//always  #2 memclk = ~memclk
 	initial #1000 $finish;
 	/*------------TEST------------*/
-	always  #10 if(~tx_hold && tx_en) 
+	always  #10 if(!tx_hold && tx_en) 
 			tx_data=$random;			//at every rising edge new data if not holding data
 	
 	initial begin
@@ -60,7 +60,7 @@ module txrx_TB;
 		memsim_manual=0;		
 	end
 	
-	always #1 if (rx_new_data && ~memsim_manual) begin		//simulate memory storage && not manually memory
+	always #1 if (rx_new_data && !memsim_manual) begin		//simulate memory storage && not manually memory
 		rx_hold =1;
 		#2 rx_hold =0;
 	end

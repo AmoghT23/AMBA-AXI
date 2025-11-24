@@ -1,5 +1,5 @@
 
-#run with vsim -do run.do
+#run with vsim -do run_txrx.do
 
 vlog subm_tx.sv subm_rx.sv txrx_TB.sv 
 #this compiles the module and testbench
