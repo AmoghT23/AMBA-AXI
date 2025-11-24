@@ -18,6 +18,15 @@
 - Verifies RRESP == OKAY.
 - Returns 64-bit read data to caller.
 
+Test	Purpose
+T1	Basic aligned write/read
+T2	Different address + ID
+T3	High but valid near-boundary address
+T4	Alignment correctness
+T5	Out-of-range → DECERR
+T6	Overwrite same address
+T7	Sparse non-contiguous writes
+
 
 
 The testbench for reads:
