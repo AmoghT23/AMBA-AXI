@@ -77,3 +77,10 @@ The manager initiates the transaction, and the subordinate responds, adhering to
 1. Basic Read Check (Mapped Address)
 2. Read Decode Error Check
 3. Sequential Read Accesses
+
+
+How to Run
+
+vlog ../rtl/*.sv tb_axi_lite_write.sv tb_axi_lite_read.sv tb_top.sv
+vsim tb_top
+run -all
