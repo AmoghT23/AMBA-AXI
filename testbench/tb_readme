@@ -13,28 +13,39 @@ Scenarios tested:
 
 The testbench for writes:
 
-1. Generates a 100 MHz clock and active-low reset (`ACLK`, `ARESETn`).
-2. Instantiates the AXI4 interface:
-   - `axi4_if #(.ADDR_W(32), .DATA_W(64), .ID_W(4)) axi_if(...)`
-3. Instantiates the subordinate DUT:
-   - `axi_subordinate dut(.s(axi_if.subordinate_mp));`
-4. Drives the manager-side AXI write signals directly through the interface:
-   - AW channel: `AWID`, `AWADDR`, `AWLEN`, `AWSIZE`, `AWBURST`, `AWVALID`
-   - W channel: `WDATA`, `WSTRB`, `WLAST`, `WVALID`
-   - B channel: `BREADY`
-5. Observes slave responses:
-   - `AWREADY`, `WREADY`, `BVALID`, `BID`, `BRESP`
+WRITE PATH (AXI4-Lite) – Testbench Overview
 
-#### Test Cases Implemented
+The AXI4-Lite write testbench performs the following:
 
-- **Single-beat INCR write**  
-  - `AWLEN = 0`, `AWSIZE = 3` (8 bytes/beat), `AWBURST = INCR`
-  - Address within the 4 KB memory window.
-  - `WSTRB = 8'hFF` (full-width write).
-  - Expected `BRESP = OKAY (2'b00)`.
+Drives a single-beat write transaction
 
-- **Multiple writes to different addresses**  
-  - Checks that the subordinate can accept multiple independent write transactions.
+AWLEN = 0
+
+WLAST = 1
+
+Full 8-byte WSTRB
+
+INCR burst type (AXI-Lite compliant)
+
+AW/W/B handshake verification
+
+AWVALID → AWREADY
+
+WVALID → WREADY
+
+BVALID → BREADY
+
+Checks BRESP
+
+Ensures correct OKAY response (2’b00)
+
+Verifies memory write
+
+Reads back 8 bytes from dut.mem[]
+
+Compares with the expected data
+
+This ensures correct behavior of the write datapath, including address acceptance, write-data acceptance, and generation of a write response.
 
 // Self Check Testbench for read
 
