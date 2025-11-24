@@ -1,182 +1,124 @@
-/*
-Here write will act as master driving axi4_if.manager signals manually.
-
-AW (address) → W (data) → B (response)
-
-Checks BRESP against OKAY/SLVERR/DECERR.
-
-*/
-
 `timescale 1ns/1ps
 
-module tb_write_full;
+module tb_axi_lite_write;
 
-  // --------------------------------------------------
-  // Clock and Reset
-  // --------------------------------------------------
   logic ACLK;
   logic ARESETn;
 
+  // Clock
   initial begin
-    ACLK = 1'b0;
-    forever #5 ACLK = ~ACLK;  // 100 MHz
+      ACLK = 0;
+      forever #5 ACLK = ~ACLK;
   end
 
+  // Reset
   initial begin
-    ARESETn = 1'b0;
-    repeat (4) @(posedge ACLK);
-    ARESETn = 1'b1;
+      ARESETn = 0;
+      repeat (4) @(posedge ACLK);
+      ARESETn = 1;
   end
 
-  // --------------------------------------------------
-  // AXI4 Interface + Subordinate DUT
-  // --------------------------------------------------
-  axi4_if #(
-    .ADDR_W(32),
-    .DATA_W(64),
-    .ID_W  (4)
-  ) axi_if (
-    .ACLK   (ACLK),
-    .ARESETn(ARESETn)
+  // DUT + Interface
+  axi4_if #(32,64,4) axi_if (.ACLK(ACLK), .ARESETn(ARESETn));
+  axi_subordinate dut (.s(axi_if.subordinate_mp));   // using slave modport
+
+  // AXI-Lite constants
+  localparam RESP_OKAY   = 2'b00;
+  localparam RESP_SLVERR = 2'b10;
+  localparam RESP_DECERR = 2'b11;
+
+  // --------------------------------------------------------
+  // TASK: AXI4-Lite Single Beat Write
+  // --------------------------------------------------------
+  task automatic axi_lite_write(
+      input logic [3:0]  id,
+      input logic [31:0] addr,
+      input logic [63:0] data
   );
+      $display("\n---- WRITE START addr=%h data=%h ----", addr, data);
 
-  // DUT: AXI4 subordinate (memory slave)
-  axi_subordinate #(
-    .ADDR_W(32),
-    .DATA_W(64),
-    .ID_W  (4)
-  ) dut (
-    .s(axi_if.subordinate_mp)
-  );
+      // --------------------------
+      // Write Address Channel (AW)
+      // --------------------------
+      axi_if.manager_mp.AWID     <= id;
+      axi_if.manager_mp.AWADDR   <= addr;
+      axi_if.manager_mp.AWLEN    <= 8'd0;       // AXI-Lite = single beat
+      axi_if.manager_mp.AWSIZE   <= 3;          // 8 bytes (64-bit)
+      axi_if.manager_mp.AWBURST  <= 2'b01;      // INCR (AXI-Lite compliant)
+      axi_if.manager_mp.AWVALID  <= 1;
 
-  // --------------------------------------------------
-  // Local variables for checking
-  // --------------------------------------------------
-  localparam logic [1:0] RESP_OKAY   = 2'b00;
-  localparam logic [1:0] RESP_SLVERR = 2'b10;
-  localparam logic [1:0] RESP_DECERR = 2'b11;
+      @(posedge ACLK);
+      while (!axi_if.manager_mp.AWREADY) @(posedge ACLK);
+      axi_if.manager_mp.AWVALID <= 0;
 
-  // --------------------------------------------------
-  // Simple AXI single-beat write task
-  // --------------------------------------------------
-  task automatic axi_single_write(
-    input  logic [3:0]  id,
-    input  logic [31:0] addr,
-    input  logic [63:0] data,
-    input  logic [7:0]  strb = 8'hFF  // full-width write by default
-  );
-    // Setup default values
-    axi_if.AWID     <= id;
-    axi_if.AWADDR   <= addr;
-    axi_if.AWLEN    <= 8'd0;     // single beat
-    axi_if.AWSIZE   <= 3'd3;     // 8 bytes per beat (for DATA_W=64)
-    axi_if.AWBURST  <= 2'b01;    // INCR
-    axi_if.AWVALID  <= 1'b0;
+      // --------------------------
+      // Write Data Channel (W)
+      // --------------------------
+      axi_if.manager_mp.WDATA  <= data;
+      axi_if.manager_mp.WSTRB  <= 8'hFF;        // full byte enable
+      axi_if.manager_mp.WLAST  <= 1;            // AXI-Lite = always 1
+      axi_if.manager_mp.WVALID <= 1;
 
-    axi_if.WDATA    <= '0;
-    axi_if.WSTRB    <= '0;
-    axi_if.WLAST    <= 1'b0;
-    axi_if.WVALID   <= 1'b0;
+      @(posedge ACLK);
+      while (!axi_if.manager_mp.WREADY) @(posedge ACLK);
+      axi_if.manager_mp.WVALID <= 0;
+      axi_if.manager_mp.WLAST  <= 0;
 
-    axi_if.BREADY   <= 1'b0;
+      // --------------------------
+      // Write Response Channel (B)
+      // --------------------------
+      axi_if.manager_mp.BREADY <= 1;
 
-    @(posedge ACLK);
-    // -----------------------------
-    // AW channel: address phase
-    // -----------------------------
-    axi_if.AWVALID <= 1'b1;
-    $display("[%0t] AW: addr=0x%08h, id=%0d", $time, addr, id);
+      @(posedge ACLK);
+      while (!axi_if.manager_mp.BVALID) @(posedge ACLK);
 
-    // Wait for slave to accept address
-    do @(posedge ACLK); while (!axi_if.AWREADY);
-    axi_if.AWVALID <= 1'b0;
+      if (axi_if.BRESP != RESP_OKAY)
+          $error("[TB] BRESP ERROR: expected OKAY (00), got %b", axi_if.BRESP);
+      else
+          $display("[TB] BRESP OKAY (00)");
 
-    // -----------------------------
-    // W channel: data phase
-    // -----------------------------
-    axi_if.WDATA  <= data;
-    axi_if.WSTRB  <= strb;
-    axi_if.WLAST  <= 1'b1;    // single beat
-    axi_if.WVALID <= 1'b1;
+      axi_if.manager_mp.BREADY <= 0;
 
-    $display("[%0t] W: data=0x%016h, strb=0x%02h", $time, data, strb);
-
-    // Wait for slave to accept data
-    do @(posedge ACLK); while (!axi_if.WREADY);
-    axi_if.WVALID <= 1'b0;
-    axi_if.WLAST  <= 1'b0;
-
-    // -----------------------------
-    // B channel: response
-    // -----------------------------
-    axi_if.BREADY <= 1'b1;
-    $display("[%0t] Waiting for B response...", $time);
-
-    do @(posedge ACLK); while (!axi_if.BVALID);
-
-    $display("[%0t] B: id=%0d, resp=0b%b", $time, axi_if.BID, axi_if.BRESP);
-
-    if (axi_if.BRESP == RESP_OKAY) begin
-      $display("[%0t] WRITE OKAY", $time);
-    end
-    else if (axi_if.BRESP == RESP_SLVERR) begin
-      $error("[%0t] WRITE SLVERR", $time);
-    end
-    else if (axi_if.BRESP == RESP_DECERR) begin
-      $error("[%0t] WRITE DECERR (decode error / addr range)", $time);
-    end
-    else begin
-      $error("[%0t] WRITE unknown BRESP = %b", $time, axi_if.BRESP);
-    end
-
-    axi_if.BREADY <= 1'b0;
+      $display("---- WRITE END ----\n");
   endtask
 
-  // --------------------------------------------------
-  // Test sequence
-  // --------------------------------------------------
+  // --------------------------------------------------------
+  // SELF-CHECK MEMORY (Lite = only one beat)
+  // --------------------------------------------------------
+  task automatic axi_lite_check_mem(
+      input logic [31:0] addr,
+      input logic [63:0] expected
+  );
+      logic [63:0] read_val;
+      for (int i = 0; i < 8; i++)
+          read_val[8*i +: 8] = dut.mem[addr + i];
+
+      if (read_val !== expected)
+          $error("[TB] MEM MISMATCH @%h expected=%h got=%h",
+                  addr, expected, read_val);
+      else
+          $display("[TB] MEM OK @%h : %h", addr, read_val);
+  endtask
+
+  // --------------------------------------------------------
+  // TESTCASE
+  // --------------------------------------------------------
   initial begin
-    // Initialize master-side outputs to zero
-    axi_if.AWID     = '0;
-    axi_if.AWADDR   = '0;
-    axi_if.AWLEN    = '0;
-    axi_if.AWSIZE   = '0;
-    axi_if.AWBURST  = '0;
-    axi_if.AWVALID  = 1'b0;
+      @(posedge ARESETn);
 
-    axi_if.WDATA    = '0;
-    axi_if.WSTRB    = '0;
-    axi_if.WLAST    = 1'b0;
-    axi_if.WVALID   = 1'b0;
+      logic [63:0] data1 = 64'hCAFE_F00D_DEAD_BEEF;
+      logic [63:0] data2 = 64'h1234_5678_ABCD_EF77;
 
-    axi_if.BREADY   = 1'b0;
+      // Test 1: simple write
+      axi_lite_write(4'd1, 32'h0000_0010, data1);
+      axi_lite_check_mem(32'h0000_0010, data1);
 
-    axi_if.ARID     = '0;
-    axi_if.ARADDR   = '0;
-    axi_if.ARLEN    = '0;
-    axi_if.ARSIZE   = '0;
-    axi_if.ARBURST  = '0;
-    axi_if.ARVALID  = 1'b0;
+      // Test 2: another write
+      axi_lite_write(4'd2, 32'h0000_0080, data2);
+      axi_lite_check_mem(32'h0000_0080, data2);
 
-    axi_if.RREADY   = 1'b0;
-
-    @(posedge ARESETn);
-    @(posedge ACLK);
-    $display("========== AXI WRITE FULL TB START ==========");
-
-    // 1) Simple single-beat INCR write inside 4KB range
-    axi_single_write(4'd1, 32'h0000_0040, 64'hDEAD_BEEF_CAFE_1234);
-
-    // 2) Another write to a different address
-    axi_single_write(4'd2, 32'h0000_0080, 64'h0123_4567_89AB_CDEF);
-
-    // 3) (Optional) Try an out-of-range address to hit DECERR
-    //    Uncomment if you want to see error response
-    // axi_single_write(4'd3, 32'h0001_1000, 64'hBAD0_BAD0_BAD0_BAD0);
-
-    $display("========== AXI WRITE FULL TB END ==========");
-    #50;
-    $finish;
+      $display("\n========== AXI-LITE WRITE TEST COMPLETE ==========\n");
+      #50 $finish;
   end
 
 endmodule
