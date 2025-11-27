@@ -7,18 +7,14 @@ module txrx_TB;
 	logic memsim_manual;
 	
 	/*------------instantiations------------*/
-	TX_channel #(.WIDTH(8)) TX (				//Write DATA
-		.*						// ACLK, ARESETn,
-	);
-	RX_channel #(.WIDTH(8)) RX (				//write confirmation channel B
-		.*						 
-	);			
+	TX_channel #(.WIDTH(8)) TX (.*);			
+	RX_channel #(.WIDTH(8)) RX (.*);			
 	
 	/*------------SETUP------------*/
 	initial begin
 		ARESETn <= 0;
 		ACLK <= 1;
-		#5 ARESETn <= 1;
+		#10 ARESETn <= 1;
 	end 
 	always 	#5 ACLK = ~ACLK;
 	//always  #2 memclk = ~memclk
@@ -30,11 +26,35 @@ module txrx_TB;
 	initial begin
 		rx_hold <= 0;
 		tx_en <=0;
-		memsim_manual<=0;
+		memsim_manual<=0;		//manual control of rx_hold
 		#10 tx_en <= 1;
 	end
 	
 	initial begin
+		#40; 
+		#10 tx_en = ~tx_en;
+		#20 tx_en = ~tx_en;
+		#10 memsim_manual=1;
+		rx_hold = ~rx_hold;
+		#20 rx_hold = ~rx_hold;
+		memsim_manual =0; 
+		#40;
+		memsim_manual=1;
+		rx_hold = ~rx_hold;
+		tx_en = ~tx_en;
+		#20;
+		rx_hold = ~rx_hold;
+		tx_en = ~tx_en;
+		memsim_manual=0;
+		#20;
+		memsim_manual=1;
+		rx_hold = ~rx_hold;
+		#10 tx_en = ~tx_en;
+		#10 rx_hold = ~rx_hold;
+		#10 tx_en = ~tx_en;
+		memsim_manual=0;
+		
+		
 		#100;				// sim regular operation
 		repeat(10)			// simulate new data availability
 		#10 tx_en = ~tx_en;

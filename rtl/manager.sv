@@ -17,7 +17,7 @@ module manager(
 	assign zero  = 1'b0;
 	
 	/*============= AW CHANNEL =============*/
-	TX_channel AW #(.WIDTH(ADDR_W))(				
+	TX_channel #(.WIDTH(ADDR_W)) AW (				
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),
 	 	.READY(bus.AWREADY),				//TOP 5 IS ON THE BUS
@@ -29,7 +29,7 @@ module manager(
 	 	.tx_hold()					// 1: HOLD data for subordinate not ready( it is just ~READY)
 	);
 	/*============= W CHANNEL =============*/
-	TX_channel W #(.WIDTH(DATA_W))(					
+	TX_channel #(.WIDTH(DATA_W)) W (					
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
 	 	.READY(bus.WREADY),
@@ -41,7 +41,7 @@ module manager(
 	 	.tx_hold()
 	);
 	/*============= B CHANNEL =============*/
-	RX_channel B #(.WIDTH(2))(				//write confirmation channel B
+	RX_channel #(.WIDTH(2)) B (				//write confirmation channel B
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						// aCLK, ARESETn,
 	 	.READY(bus.BREADY),
@@ -53,7 +53,7 @@ module manager(
 		.rx_hold(zero),					//if there is data on data_flag[2] put it in memory
 	);							//we dont care about storing so keep mem_busy = 0
 	/*============= AR CHANNEL =============*/
-	TX_channel AR #(.WIDTH(ADDR_W))(				
+	TX_channel #(.WIDTH(ADDR_W)) AR (				
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
 	 	.READY(bus.ARREADY),
@@ -65,7 +65,7 @@ module manager(
 	 	.tx_hold()
 	);
 	/*============= R CHANNEL =============*/
-	RX_channel R #(.WIDTH(DATA_W))(			
+	RX_channel #(.WIDTH(DATA_W)) R (			
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
 	 	.READY(bus.RREADY),

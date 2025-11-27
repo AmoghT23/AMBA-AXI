@@ -18,7 +18,7 @@ module subordinate(
 	assign zero  = 1'b0;
 	
 	/*============= AW CHANNEL =============*/
-	RX_channel AW #(.WIDTH(ADDR_W))(				//Write DATA
+	RX_channel #(.WIDTH(ADDR_W)) AW (				//Write DATA
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
 	 	.READY(bus.AWREADY),
@@ -30,7 +30,7 @@ module subordinate(
 		.rx_hold(aw_busy),				//1: SUB says HOLD the transfer for processing
 	);
 	/*============= W CHANNEL =============*/
-	RX_channel W #(.WIDTH(DATA_W))(				//Write DATA	
+	RX_channel #(.WIDTH(DATA_W)) W (				//Write DATA	
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
 	 	.READY(bus.WREADY),
@@ -42,10 +42,10 @@ module subordinate(
 		.rx_hold(w_busy),
 	);
 	/*============= Write handler =============*/
-	Mem_Write W_service #(
+	Mem_Write #(
 		.ADDR_W(12),
 		.DATA_W(DATA_W) 
-		)(							//master has 11 addr and slave has 10, cs of which slave is the 11th address
+		) W_service (							//master has 11 addr and slave has 10, cs of which slave is the 11th address
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),	
 		.AWADDR(data_AW[11:0]), 
@@ -58,7 +58,7 @@ module subordinate(
 	 	.memory(memory)					//passed as reference not synthesizable but 
 	);							//submodule contents can be move here for synthesis
 	/*============= B CHANNEL =============*/
-	TX_channel B #(.WIDTH(2))(				//write confirmation channel B
+	TX_channel #(.WIDTH(2)) B (				//write confirmation channel B
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
 	 	.READY(bus.BREADY),
@@ -70,7 +70,7 @@ module subordinate(
 	 	.tx_hold()				
 	);	
 	/*============= AR CHANNEL =============*/
-	RX_channel AR #(.WIDTH(ADDR_W))(				//READ address DATA
+	RX_channel #(.WIDTH(ADDR_W)) AR (				//READ address DATA
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
 	 	.READY(bus.ARREADY),
@@ -82,7 +82,7 @@ module subordinate(
 		.rx_hold(~bus.RREADY),					//when read is not ready dont send more address
 	);
 	/*============= R CHANNEL =============*/
-	TX_channel R #(.WIDTH(DATA_W))(				//Read channel 
+	TX_channel #(.WIDTH(DATA_W)) R (				//Read channel 
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
 	 	.READY(bus.RREADY),

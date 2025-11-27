@@ -9,12 +9,16 @@ module RX_channel #(parameter WIDTH =8)(			//control signal between master and s
 	input 	logic rx_hold		//wait for upper module to tell us that the data in the latch is serviced (data is stored somewhere)
 	);
 	//TX not permited to wait for ready to assert valid
-	typedef enum logic {IDLE,HOLD} state_t;
+	typedef enum logic [1:0] {RST, IDLE,HOLD} state_t;
 	state_t state, next_state;
 	
 	always_comb begin
 		next_state = state;
 		case (state)
+			RST: 	begin
+				READY = 1;			//AXI protocol: reset valid must be driven low
+				next_state = IDLE;
+			end
 			IDLE: 	begin
 				READY = 1;
 				if (rx_hold)			//ready is dependent on rx_hold (memory)
@@ -35,12 +39,9 @@ module RX_channel #(parameter WIDTH =8)(			//control signal between master and s
 		
 	always_ff @ (posedge ACLK, negedge ARESETn) begin 
 		if (!ARESETn) begin
-			state <= IDLE;
+			state <= RST;
 			rx_new_data <= 0;
-			
-			
-		end
-		else begin
+		end else begin				//normal operation
 			state <= next_state;
 			if (VALID && READY) begin
 			rx_data <= xDATA;		//must happen on ready & valid clkedge, HOLD cycle 1 clk is after
