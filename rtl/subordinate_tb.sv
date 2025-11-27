@@ -27,7 +27,7 @@ module subordinate(
 		.xDATA(bus.AWDATA),
 		
 		.rx_data(tb.sub_rx_AW),				//DATA RECIEVED BY SUB	
-	 	.rx_new_data(tb.new_data[4]),			//flag for new data recieved
+	 	.rx_new_data(tb.sub_new_data[4]),			//flag for new data recieved
 		.rx_hold(tb.mem_flag[4]),				//1: SUB says HOLD the transfer for processing
 	);
 	/*============= W CHANNEL =============*/
@@ -39,7 +39,7 @@ module subordinate(
 		.xDATA(bus.WDATA),
 		
 		.rx_data(tb.sub_rx_W),						
-	 	.rx_new_data(tb.new_data[3]),			
+	 	.rx_new_data(tb.sub_new_data[3]),			
 		.rx_hold(tb.mem_flag[3]),
 	);
 	/*============= B CHANNEL =============*/
@@ -63,7 +63,7 @@ module subordinate(
 		.xDATA(bus.ARDATA),
 		
 		.rx_data(tb.sub_rx_AR),				
-	 	.rx_new_data(tb.new_data[1]),			
+	 	.rx_new_data(tb.sub_new_data[1]),			
 		.rx_hold(tb.mem_flag[1]),
 	);
 	/*============= R CHANNEL =============*/

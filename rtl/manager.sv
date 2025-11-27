@@ -49,7 +49,7 @@ module manager(
 		.xDATA(bus.BRESP),
 		
 		.rx_data(tb.mgr_bresp),				//data recieved
-	 	.rx_new_data(tb.new_data[2]),			//let module know if there is new data
+	 	.rx_new_data(tb.mgr_new_data[2]),			//let module know if there is new data
 		.rx_hold(zero),					//if there is data on data_flag[2] put it in memory
 	);							//we dont care about storing so keep mem_busy = 0
 	/*============= AR CHANNEL =============*/
@@ -73,7 +73,7 @@ module manager(
 		.xDATA(bus.RDATA),
 		
 		.rx_data(tb.mgr_rx_R),				
-	 	.rx_new_data(tb.new_data[0]),			
+	 	.rx_new_data(tb.mgr_new_data[0]),			
 		.rx_hold(tb.mem_flag[0]),				
 	);
 	
