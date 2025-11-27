@@ -1,9 +1,8 @@
 module txrx_TB;
 	logic ACLK,ARESETn;
 	logic READY, VALID;
-	logic [7:0] xDATA; 
-	logic [7:0] tx_data, rx_data;
-	logic tx_en,rx_hold, rx_new_data,tx_hold;
+	logic [7:0] tx_data, xDATA, rx_data;
+	logic tx_en, rx_hold, rx_new_data,tx_hold;
 	logic memsim_manual;
 	
 	/*------------instantiations------------*/
@@ -20,9 +19,9 @@ module txrx_TB;
 	//always  #2 memclk = ~memclk
 	initial #1000 $finish;
 	/*------------TEST------------*/
-	always  #10 if(!tx_hold && tx_en) 
-			tx_data=$random;			//at every rising edge new data if not holding data
-	
+	always begin 					//at every rising edge new data if not holding data
+		#10 tx_data=$random;
+	end
 	initial begin
 		rx_hold <= 0;
 		tx_en <=0;
@@ -38,14 +37,14 @@ module txrx_TB;
 		rx_hold = ~rx_hold;
 		#20 rx_hold = ~rx_hold;
 		memsim_manual =0; 
-		#40;
+		#20;
 		memsim_manual=1;
 		rx_hold = ~rx_hold;
-		tx_en = ~tx_en;
-		#20;
+		#20 tx_en = ~tx_en;
 		rx_hold = ~rx_hold;
-		tx_en = ~tx_en;
 		memsim_manual=0;
+		#30 tx_en = ~tx_en;
+		
 		#20;
 		memsim_manual=1;
 		rx_hold = ~rx_hold;

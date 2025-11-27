@@ -21,28 +21,26 @@ module TX_channel #(parameter WIDTH=8)(			//control signal between master and sl
 			end
 			IDLE: 	begin
 									
-				if (tx_en) begin
-					next_state = HOLD;			
+				if (tx_en) begin			
 					VALID = 1;
-					xDATA = tx_data;
-					
+					if (READY) xDATA = tx_data;	//replace data when ready
+					else next_state = HOLD;		//hold when not ready
 				end else begin					//tx_en ==0;
-				if (READY) begin				//turn off valid and data only
-					VALID = 0;				//when not holding
+				if (READY) begin				//if ready, signal accepted no new data
+					VALID = 0;					//when not holding
 					xDATA = 'x;
 				end
-				end
+				end	
 			end
 				
 			HOLD:	begin
-				
 				if (!READY) begin
 					next_state = HOLD;	//hold the data until reciever ready
 				end else begin			//READY
 					next_state = IDLE;				//stop holding	
 				end
 				end
-			default: 	next_state = IDLE;	
+			//default: 	next_state = IDLE;	
 		endcase
 						
 	end 
