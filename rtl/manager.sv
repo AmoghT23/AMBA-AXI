@@ -3,18 +3,21 @@ module manager(
 	axi4_if.manager_mp bus,
 	TB_if.manager tb					//****<<<<< use this to control internals of master
 	);
-	localparam DATA_W = axi4_if.DATA_W;			//pull in DATA_W
-	localparam ADDR_W = axi4_if.ADDR_W;			//pull in ADDR_W
+	localparam DATA_W = bus.DATA_W;			//pull in DATA_W
+	localparam ADDR_W = bus.ADDR_W;			//pull in ADDR_W
 	logic [DATA_W:0] cache [0:1023];				//cache is smaller than memory! CPU for now store by line not byte
 	logic [DATA_W:0] data_W, data_R;			  	//data_W,addr_AW,addr_R, opcode
 	logic [ADDR_W:0] addr_AW, addr_AR;				//hook input address for AW 
 								
 	logic [4:0] data_flag;				//data flag register notifies if new data present on channel latch (if RX)
-	input logic [1:0] bresp_l;
+	input logic [1:0] bresp;
 	logic zero;
+	logic [bus.STRB_W-1:0] wstrb;
+	
 	
 	resp_t rx_bresp, rx_rresp;
 	assign zero  = 1'b0;
+	assign wstrb = '1;				//WSTRB is handled here for axi_lite dont do double driver in TB
 	
 	/*============= AW CHANNEL =============*/
 	TX_channel #(.WIDTH(ADDR_W)) AW (				
@@ -40,6 +43,10 @@ module manager(
 	 	.tx_en(tb.tx_en[3]),
 	 	.tx_hold()
 	);
+	always_comb
+		if(bus.WVALID) bus.WSTRB = wstrb;		//bus.WVALID is driven synchronously in submodule
+		else bus.WSTRB = 'x;				//axi signal to indicate which bytes in data to change (change all bytes in axi_lite)
+	end
 	/*============= B CHANNEL =============*/
 	RX_channel #(.WIDTH(2)) B (				//write confirmation channel B
 		.ACLK(bus.ACLK),
@@ -76,7 +83,9 @@ module manager(
 	 	.rx_new_data(tb.mgr_new_data[0]),			
 		.rx_hold(tb.mem_flag[0]),				
 	);
-	
+	always_comb
+		if(bus.RVALID && bus.RREADY) rx_rresp = bus.RRESP;		// if is driven by synchronous signals, accepts RRESP	
+	end
 	//reset is handled in RX/TX modules where states are set to idle Valid = 0/ready =1
 	
 endmodule
