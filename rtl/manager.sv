@@ -14,12 +14,25 @@ module manager(
 	logic zero;
 	logic [bus.STRB_W-1:0] wstrb;
 	
+	//AXI_lite
+	WxDATA_t	wIN, wBUS;			//in package axi_helper
+	RxDATA_t 	rBUS, rOUT;			
+	/* //AXI_FULL axi full structre is created and can be implemented
+	// axi_lite is chosen to simplify testing first
+	AWxDATA_t 	awIN, awBUS;
+	WxDATA_t 	wIN, wBUS;
+	BxDATA_t 	rBUS, rOUT;
+	ARxDATA_t	wIN, wBUS;
+	RxDATA_t 	rBUS, rOUT;	
+	*/
+	
 	
 	resp_t rx_bresp, rx_rresp;
 	assign zero  = 1'b0;
 	assign wstrb = '1;				//WSTRB is handled here for axi_lite dont do double driver in TB
 	
 	/*============= AW CHANNEL =============*/
+	//we only send AWADDR on xDATA channel so connect directly without packed struct
 	TX_channel #(.WIDTH(ADDR_W)) AW (				
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),
@@ -32,22 +45,31 @@ module manager(
 	 	.tx_hold()					// 1: HOLD data for subordinate not ready( it is just ~READY)
 	);
 	/*============= W CHANNEL =============*/
-	TX_channel #(.WIDTH(DATA_W)) W (					
+	//[data + comands] → [packed struct] → [tx_submodule.xDATA] → [packed struct] → [bus]
+	//this way submodule can be reused to add as many lines as needed without 
+	//making a new tx or rx for each channel
+	
+	assign wIN.data = tb.mgr_tx_W;					//input data	
+	assign wIN.strb = wstrb;					//input wstrb
+	assign bus.WDATA = wOUT.data;					//output data to Bus
+	assign bus.WSTRB = wOUT.strb;					//output strobe to bus
+	
+	TX_channel #(.WIDTH(WxDATA_W)) W (			//sum of all w channel bits (data and control) besides ready valid		
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
 	 	.READY(bus.WREADY),
 	 	.VALID(bus.WVALID),
-	 	.xDATA(bus.WDATA),
+	 	.xDATA(wBUS),
 	 	
-	 	.tx_data(tb.mgr_tx_W),
+	 	.tx_data(wIN),
 	 	.tx_en(tb.tx_en[3]),
-	 	.tx_hold()
+	 	.tx_hold()					//optional signal, it is ~READY
 	);
-	always_comb
-		if(bus.WVALID) bus.WSTRB = wstrb;		//bus.WVALID is driven synchronously in submodule
-		else bus.WSTRB = 'x;				//axi signal to indicate which bytes in data to change (change all bytes in axi_lite)
-	end
+	
+	
+	
 	/*============= B CHANNEL =============*/
+	//we only send BRESP on xDATA channel so connect directly without packed struct
 	RX_channel #(.WIDTH(2)) B (				//write confirmation channel B
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						// aCLK, ARESETn,
@@ -58,8 +80,9 @@ module manager(
 		.rx_data(tb.mgr_bresp),				//data recieved
 	 	.rx_new_data(tb.mgr_new_data[2]),			//let module know if there is new data
 		.rx_hold(zero),					//if there is data on data_flag[2] put it in memory
-	);							//we dont care about storing so keep mem_busy = 0
+	);							//we dont care about storing so keep rx_hold = 0
 	/*============= AR CHANNEL =============*/
+	//we only send ARADDR on xDATA channel so connect directly without packed struct
 	TX_channel #(.WIDTH(ADDR_W)) AR (				
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
@@ -72,22 +95,29 @@ module manager(
 	 	.tx_hold()
 	);
 	/*============= R CHANNEL =============*/
-	RX_channel #(.WIDTH(DATA_W)) R (			
+	//[BUS] → [packed struct] → [rx_submodule.xDATA] → [packed struct] → [data + commands]
+	//this way submodule rx tx can be reused to add as many lines as needed without 
+	//making a new tx or rx for each channel
+	assign rBUS.data = bus.RDATA;		//inputs recieved from bus
+	assign rBUS.resp = bus.RRESP;
+	
+	assign tb.mgr_rx_R = rOUT.data;		//submodule output data pushed to TB_if wires
+	assign tb.mgr_rresp = rOUT.resp;        //this is what the manager recieves
+
+	
+	RX_channel #(.WIDTH(RxDATA_W)) R (			
 		.ACLK(bus.ACLK),
 		.ARESETn(bus.ARESETn),						
 	 	.READY(bus.RREADY),
 		.VALID(bus.RVALID),
-		.xDATA(bus.RDATA),
+		.xDATA(rBUS),
 		
-		.rx_data(tb.mgr_rx_R),				
+		.rx_data(rOUT),				
 	 	.rx_new_data(tb.mgr_new_data[0]),			
 		.rx_hold(tb.mem_flag[0]),				
 	);
-	always_comb
-		if(bus.RVALID && bus.RREADY) rx_rresp = bus.RRESP;		// if is driven by synchronous signals, accepts RRESP	
-	end
-	//reset is handled in RX/TX modules where states are set to idle Valid = 0/ready =1
 	
+
 endmodule
 
 /*
