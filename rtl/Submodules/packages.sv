@@ -1,7 +1,7 @@
 package axi_helper;
 	localparam int 	DATA_LEN = 64;			//values should match DATA_W /ADDR_W from axi bus
 	localparam int	ADDR_LEN = 32;
-	localparam int	ID_LEN = 4
+	localparam int	ID_LEN = 4;
 	localparam int	WSTRB_LEN = DATA_LEN/8;
 	
 	
