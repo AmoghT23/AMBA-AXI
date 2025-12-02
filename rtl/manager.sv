@@ -5,12 +5,13 @@ module manager(
 	);
 	localparam DATA_W = bus.DATA_W;			//pull in DATA_W
 	localparam ADDR_W = bus.ADDR_W;			//pull in ADDR_W
-	logic [DATA_W:0] cache [0:1023];				//cache is smaller than memory! CPU for now store by line not byte
-	logic [DATA_W:0] data_W, data_R;			  	//data_W,addr_AW,addr_R, opcode
-	logic [ADDR_W:0] addr_AW, addr_AR;				//hook input address for AW 
+	
+	//registers  below in the manager are pushed out to TestBench (TB_if)
+	//logic [DATA_W:0] cache [0:1023];				//cache is smaller than memory! CPU for now store by line not byte
+	//logic [DATA_W:0] data_W, data_R;			  	//data_W,addr_AW,addr_R, opcode
+	//logic [ADDR_W:0] addr_AW, addr_AR;				//hook input address for AW 
 								
-	logic [4:0] data_flag;				//data flag register notifies if new data present on channel latch (if RX)
-	input logic [1:0] bresp;
+						
 	logic zero;
 	logic [bus.STRB_W-1:0] wstrb;
 	
@@ -79,7 +80,7 @@ module manager(
 		
 		.rx_data(tb.mgr_bresp),				//data recieved
 	 	.rx_new_data(tb.mgr_new_data[2]),			//let module know if there is new data
-		.rx_hold(zero),					//if there is data on data_flag[2] put it in memory
+		.rx_hold(zero)  				//if there is data on new_data[2] put it in memory
 	);							//we dont care about storing so keep rx_hold = 0
 	/*============= AR CHANNEL =============*/
 	//we only send ARADDR on xDATA channel so connect directly without packed struct
@@ -114,7 +115,7 @@ module manager(
 		
 		.rx_data(rOUT),				
 	 	.rx_new_data(tb.mgr_new_data[0]),			
-		.rx_hold(tb.mem_flag[0]),				
+		.rx_hold(tb.mem_flag[0])				
 	);
 	
 
