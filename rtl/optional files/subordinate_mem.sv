@@ -1,3 +1,10 @@
+/* 
+*  Author: 	Nhat Nguyen
+*  Editors: 
+*  INFO: 	This module is intended to be an example of a txrx style suborndinate with memory (not fully tested)
+*/
+
+
 import axi_helper::*;
 module subordinate(	
 	axi4_if.subordinate_mp bus

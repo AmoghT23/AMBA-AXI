@@ -1,3 +1,11 @@
+/* 
+*  Author: 	Nhat Nguyen
+*  Editors:
+*  Info:	This module is intended to show how values are connected to TB_IF for subordinate (not fully tested)
+*		RRESP and WSTRB not added 
+*/
+
+
 import axi_helper::*;
 module subordinate(	
 	axi4_if.subordinate_mp bus,

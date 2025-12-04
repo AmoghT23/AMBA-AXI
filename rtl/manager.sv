@@ -1,3 +1,9 @@
+/* 
+*  Author: 	Nhat Nguyen
+*  Editors: 
+*  Requires:    AXI4_if.sv TB_if.sv subm_rx.sv subm_tx.sv packages.sv
+*/
+
 import axi_helper::*;
 module manager(	
 	axi4_if.manager_mp bus,
@@ -5,12 +11,14 @@ module manager(
 	);
 	localparam DATA_W = bus.DATA_W;			//pull in DATA_W
 	localparam ADDR_W = bus.ADDR_W;			//pull in ADDR_W
-	logic [DATA_W:0] cache [0:1023];				//cache is smaller than memory! CPU for now store by line not byte
-	logic [DATA_W:0] data_W, data_R;			  	//data_W,addr_AW,addr_R, opcode
-	logic [ADDR_W:0] addr_AW, addr_AR;				//hook input address for AW 
+	
+	//***register replaced by TB_if
+	//logic [DATA_W:0] cache [0:1023];				//cache is smaller than memory! CPU for now store by line not byte
+	//logic [DATA_W:0] data_W, data_R;			  	//data_W,addr_AW,addr_R, opcode
+	//logic [ADDR_W:0] addr_AW, addr_AR;				//hook input address for AW 
 								
-	logic [4:0] data_flag;				//data flag register notifies if new data present on channel latch (if RX)
-	logic [1:0] bresp;
+	//logic [4:0] data_flag;				//data flag register notifies if new data present on channel latch (if RX)
+	//logic [1:0] bresp;
 	logic zero;
 	logic [bus.STRB_W-1:0] wstrb;
 	
@@ -102,7 +110,7 @@ module manager(
 	//this way submodule rx tx can be reused to add as many lines as needed without 
 	//making a new tx or rx for each channel
 	assign rBUS.data = bus.RDATA;		//inputs recieved from bus
-	assign rBUS.resp = bus.RRESP;
+	assign rBUS.resp = resp_t '(bus.RRESP);
 	
 	assign tb.mgr_rx_R = rOUT.data;		//submodule output data pushed to TB_if wires
 	assign tb.mgr_rresp = rOUT.resp;        //this is what the manager recieves
@@ -123,16 +131,4 @@ module manager(
 
 endmodule
 
-/*
-	Mem_Manager_Write R_service #(					//This module not yet tested
-		.LEN_ADDR(10),
-		.LEN_DATA(DATA_W) 
-		)(							//master has 11 addr and slave has 10, cs of which slave is the 11th address
-		.*,							//aCLK,ARESETn,
-		.ADDR(CTRL.addr_AR[4:0]),				//take the bottom 32 bit? SET/INDEX we'll just overwirte data in cache
-		.DATA(data_R),
-		.WE(.data_flag[0]), 					//write enable
-		.memory(cache),						//*** passes whole memory maybe better to pass by refference?
-		.MEM_BUSY(mem_flag[0])
-	);
-*/
+

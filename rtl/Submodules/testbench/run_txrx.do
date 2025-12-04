@@ -1,3 +1,4 @@
+#Author: Nhat Nguyen
 
 #run with vsim -do run_txrx.do
 
@@ -9,6 +10,7 @@ vsim -voptargs="+acc" txrx_TB
 #also <put tb name here> is the name of the testbench module
 
 add wave *
+add wave txrx_TB/TX/*
 #this adds all the signal waveforms to Questasim (saves lots of time)
 
 run -all	

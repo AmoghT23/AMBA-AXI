@@ -1,3 +1,8 @@
+/* 
+*  Author: Nhat Nguyen
+*  Editors: 
+*/
+
 module txrx_TB;
 	logic ACLK,ARESETn;
 	logic READY, VALID;
@@ -16,7 +21,6 @@ module txrx_TB;
 		#10 ARESETn <= 1;
 	end 
 	always 	#5 ACLK = ~ACLK;
-	//always  #2 memclk = ~memclk
 	initial #1000 $finish;
 	/*------------TEST------------*/
 	always begin 					//at every rising edge new data if not holding data
@@ -35,14 +39,15 @@ module txrx_TB;
 		#20 tx_en = ~tx_en;
 		#10 memsim_manual=1;
 		rx_hold = ~rx_hold;
-		#20 rx_hold = ~rx_hold;
-		memsim_manual =0; 
-		#20;
+		#19 rx_hold = ~rx_hold;
+		memsim_manual =0;
+		
+		#21;
 		memsim_manual=1;
 		rx_hold = ~rx_hold;
-		#20 tx_en = ~tx_en;
-		rx_hold = ~rx_hold;
+		#19 rx_hold = ~rx_hold;
 		memsim_manual=0;
+		#1 tx_en = ~tx_en;
 		#30 tx_en = ~tx_en;
 		
 		#20;
@@ -79,9 +84,12 @@ module txrx_TB;
 		memsim_manual=0;		
 	end
 	
-	always #1 if (rx_new_data && !memsim_manual) begin		//simulate memory storage && not manually memory
-		rx_hold =1;
-		#2 rx_hold =0;
+	always begin;		//simulate memory storage && not manually memory		
+		@(posedge ACLK);
+		#1 if (rx_new_data && !memsim_manual) begin
+		rx_hold <=1;
+		#5 rx_hold <=0;
+		end
 	end
 	
 endmodule

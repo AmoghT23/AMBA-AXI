@@ -1,3 +1,8 @@
+/* 
+*  Author: 	Nhat Nguyen
+*  Editors: 
+*/
+
 interface TB_if #(
   	parameter int ADDR_W = 32,	
   	parameter int DATA_W = 64

@@ -1,3 +1,8 @@
+/* 
+*  Author: 	Nhat Nguyen
+*  Editors: 
+*/
+
 module RX_channel #(parameter WIDTH =8)(			//control signal between master and slave
 	input  	logic ACLK, 
 	input 	logic ARESETn,
@@ -35,7 +40,7 @@ module RX_channel #(parameter WIDTH =8)(			//control signal between master and s
 		endcase
 	end
 	
-	//always_ff @ (negedge rx_hold) rx_new_data <= 0;		//handshake within upper module, not on AXI bus
+	
 		
 	always_ff @ (posedge ACLK, negedge ARESETn) begin 
 		if (!ARESETn) begin
@@ -46,7 +51,7 @@ module RX_channel #(parameter WIDTH =8)(			//control signal between master and s
 			if (VALID && READY) begin
 			rx_data <= xDATA;		//must happen on ready & valid clkedge, HOLD cycle 1 clk is after
 			rx_new_data <= 1;		//new data, let upper module know to put in memory
-			end
+			end else if (!rx_hold) rx_new_data <= 0;
 		end
 	end
 endmodule

@@ -1,3 +1,8 @@
+/* 
+*  Author: 	Nhat Nguyen
+*  Editors: 
+*/
+
 package axi_helper;
 	localparam int 	DATA_LEN = 64;			//values should match DATA_W /ADDR_W from axi bus
 	localparam int	ADDR_LEN = 32;

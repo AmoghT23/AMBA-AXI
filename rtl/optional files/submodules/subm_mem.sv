@@ -1,3 +1,9 @@
+/* 
+*  Author: 	Nhat Nguyen
+*  Editors: 
+*/
+
+
 module Mem_Write #(
 	parameter ADDR_W=12,
 	parameter DATA_W=64 

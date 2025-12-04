@@ -1,3 +1,8 @@
+/* 
+*  Author: Nhat Nguyen
+*  Editors: 
+*/
+
 module TX_channel #(parameter WIDTH=8)(			//control signal between master and slave
 	input 	logic ACLK, 
 	input 	logic ARESETn,
@@ -11,7 +16,7 @@ module TX_channel #(parameter WIDTH=8)(			//control signal between master and sl
 	//TX not permited to wait for ready to assert valid
 	typedef enum logic [1:0] {RST,IDLE,HOLD} state_t;
 	state_t state, next_state;
-	
+	logic [WIDTH-1:0] hold_DATA;
 	always_comb begin
 		next_state = state;						//valid was in this case block 
 		case (state)							//but this created race condition
@@ -23,24 +28,29 @@ module TX_channel #(parameter WIDTH=8)(			//control signal between master and sl
 									
 				if (tx_en) begin			
 					VALID = 1;
-					xDATA = tx_data;	//replace data when ready
-					if(!READY) next_state = HOLD;		//hold when not ready
+					xDATA = tx_data;		//replace data when ready
+					if (READY) next_state = IDLE;	
+					else  begin 
+					next_state = HOLD;		//hold when not ready			
+					end
+					
 				end else begin					//tx_en ==0;
-				if (READY) begin				//if ready, signal accepted no new data
+									//if ready, signal accepted no new data
 					VALID = 0;					//when not holding
 					xDATA = 'x;
-				end
 				end	
 			end
 				
 			HOLD:	begin
-				if (!READY) begin
-					next_state = HOLD;	//hold the data until reciever ready
-				end else begin			//READY
-					next_state = IDLE;				//stop holding	
-				end
-				end
-			//default: 	next_state = IDLE;	
+				VALID = 1;
+				xDATA = hold_DATA;   	//simulation instability resulted changing xDATA values when holding
+							//if there is no internal register to hold data
+							//this is called pass-through glitch
+				if (READY) next_state = IDLE;	//hold the data until reciever ready
+				else next_state = HOLD;					
+				
+			end
+			//default 	next_state = IDLE;	
 		endcase
 						
 	end 
@@ -50,6 +60,9 @@ module TX_channel #(parameter WIDTH=8)(			//control signal between master and sl
 	always_ff @ (posedge ACLK, negedge ARESETn) begin 
 		if (!ARESETn) begin
 			state <= RST; 
-		end else state <= next_state;
+		end else begin 
+		if ((state == IDLE) && VALID && !READY) hold_DATA <= xDATA;
+		state <= next_state;
+		end
 	end
 endmodule
