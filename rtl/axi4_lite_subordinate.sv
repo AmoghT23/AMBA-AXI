@@ -1,3 +1,8 @@
+/* 
+*  Author: 	Senkathir Mutharasu
+*  Editors: 
+*  Requires: AXI4_if.sv
+*/
 module axi_subordinate #(
   parameter int ADDR_W = 32,
   parameter int DATA_W = 64,
