@@ -1,165 +1,178 @@
 `timescale 1ns/1ps
 
-module tb_top;
+import axi_helper::*;
 
-  // ===============================
-  // Clock + Reset
-  // ===============================
+module top_tb;
+
+  // Parameters (match all modules)
+  localparam int ADDR_W = 32;
+  localparam int DATA_W = 64;
+
+  // Clock & Reset
   logic ACLK;
   logic ARESETn;
-  int   error_count = 0;
 
   initial begin
-      ACLK = 0;
-      forever #5 ACLK = ~ACLK;   // 100MHz
+    ACLK = 0;
+    forever #5 ACLK = ~ACLK;   // 100 MHz clock
   end
 
   initial begin
-      ARESETn = 0;
-      repeat (4) @(posedge ACLK);
-      ARESETn = 1;
+    ARESETn = 0;
+    repeat(5) @(posedge ACLK);
+    ARESETn = 1;
   end
 
-  // ===============================
-  // AXI Interface
-  // ===============================
-  axi4_if #(32,64,4) axi_if (
-      .ACLK(ACLK),
-      .ARESETn(ARESETn)
+  // Interfaces
+  axi4_if #(
+    .ADDR_W(ADDR_W),
+    .DATA_W(DATA_W),
+    .ID_W(4)
+  ) axi_if (
+    .ACLK(ACLK),
+    .ARESETn(ARESETn)
   );
 
-  // ===============================
-  // MASTER COMMAND INTERFACE
-  // ===============================
-  logic         cmd_valid;
-  logic         cmd_write;
-  logic [31:0]  cmd_addr;
-  logic [63:0]  cmd_wdata;
-  logic [63:0]  cmd_rdata;
-  logic         cmd_done;
+  TB_if #(
+    .ADDR_W(ADDR_W),
+    .DATA_W(DATA_W)
+  ) tb_if();
 
-  // ===============================
-  // INSTANTIATE MASTER RTL
-  // ===============================
-  axi4_lite_master #(
-      .ADDR_W(32), .DATA_W(64), .ID_W(4)
-  ) u_master (
-      .ACLK      (ACLK),
-      .ARESETn   (ARESETn),
-      .m         (axi_if.manager_mp),
-
-      .cmd_valid (cmd_valid),
-      .cmd_write (cmd_write),
-      .cmd_addr  (cmd_addr),
-      .cmd_wdata (cmd_wdata),
-      .cmd_rdata (cmd_rdata),
-      .cmd_done  (cmd_done)
+  // DUT Instantiation (Master + Slave)
+  manager u_manager (
+    .bus(axi_if.manager_mp),
+    .tb(tb_if.manager)
   );
 
-  // ===============================
-  // INSTANTIATE SLAVE RTL
-  // ===============================
-  axi_subordinate dut (
-      .s(axi_if.subordinate_mp)
+  axi_subordinate u_subordinate (
+    .s(axi_if.subordinate_mp)
   );
 
-  // ===============================
-  // Helper tasks to talk to MASTER RTL
-  // ===============================
-  task automatic master_write(input [31:0] addr, input [63:0] data);
-      cmd_addr  = addr;
-      cmd_wdata = data;
-      cmd_write = 1;
-      cmd_valid = 1;
+  // ------------------Helper Tasks---------------------
+	
+  // Write task 
+  task automatic do_write(
+    input logic [ADDR_W-1:0] addr,
+    input logic [DATA_W-1:0] data
+  );
+    string result;
+    begin
+      @(posedge ACLK);
+      tb_if.mgr_tx_AW = addr;
+      tb_if.mgr_tx_W  = data;
+      tb_if.tx_en[4]  = 1;   // AW
+      tb_if.tx_en[3]  = 1;   // W
 
       @(posedge ACLK);
-      while (!cmd_done) @(posedge ACLK);
 
-      cmd_valid = 0;
-      @(posedge ACLK);
+      tb_if.tx_en[4] = 0;
+      tb_if.tx_en[3] = 0;
+	
+      // Wait for B channel response
+      wait(tb_if.mgr_new_data[2]);
+      repeat(2) @(posedge ACLK);
+
+      result = (axi_if.BRESP == '0) ? "PASS":"FAIL";
+      $display("Time:[%0t] OP:[WRITE] ADDR: @0x%08x DATA: %016x BRESP: %0d Result: %s",
+               $time,addr, data, axi_if.BRESP, result);
+    end
   endtask
 
-  task automatic master_read(input [31:0] addr, output [63:0] data);
-      cmd_addr  = addr;
-      cmd_wdata = '0;
-      cmd_write = 0;
-      cmd_valid = 1;
+  // Read task
+  task automatic do_read(input logic [ADDR_W-1:0] addr);
+    string result;
+    begin
+      @(posedge ACLK);
+      tb_if.mgr_tx_AR <= addr;
+      tb_if.tx_en[1]  <= 1; // AR
 
       @(posedge ACLK);
-      while (!cmd_done) @(posedge ACLK);
 
-      data = cmd_rdata;
-      cmd_valid = 0;
-      @(posedge ACLK);
+      tb_if.tx_en[1] <= 0;
+
+      // Wait for R channel data
+      wait(tb_if.mgr_new_data[0]);
+      repeat(2) @(posedge ACLK);
+
+      result = (axi_if.BRESP == '0) ? "PASS":"FAIL";
+      $display("Time:[%0t] OP:[WRITE] ADDR: @0x%08x DATA: %016x BRESP: %0d Result: %s",
+               $time,addr, axi_if.RDATA, axi_if.RRESP, result);
+    end
   endtask
 
-  // ===============================
-  // Declare ALL variables outside the initial block
-  // ===============================
-  logic [63:0] wdata, rdata;
-  logic [63:0] w1, w2;
-  logic [63:0] A, B, C;
+  // ---------------------Corner Case Test Sequences---------------------
 
-  // ===============================
-  // YOUR 7 TEST CASES
-  // ===============================
   initial begin
-      @(posedge ARESETn);
-      $display("\n===== AXI4-LITE MASTER+SLAVE RTL TEST START =====\n");
+    // Dump waveforms
+    $dumpfile("axi_lite_tb.vcd");
+    $dumpvars(1, top_tb);
 
-      // TEST 1
-      wdata = 64'h1111_2222_3333_4444;
-      master_write(32'h0000_0020, wdata);
-      master_read (32'h0000_0020, rdata);
-      if (rdata !== wdata) error_count++; else $display("[T1] PASS");
+    // Wait for reset
+    wait(ARESETn == 1);
+    @(posedge ACLK);
 
-      // TEST 2
-      wdata = 64'hAAAA_BBBB_CCCC_DDDD;
-      master_write(32'h0000_0040, wdata);
-      master_read (32'h0000_0040, rdata);
-      if (rdata !== wdata) error_count++; else $display("[T2] PASS");
+    $display("----------------------- STARTING AXI-LITE CORNER CASE VERIFICATION -----------------------");
 
-      // TEST 3
-      wdata = 64'h1234_5678_ABCD_EF00;
-      master_write(32'h0000_0FF0, wdata);
-      master_read (32'h0000_0FF0, rdata);
-      if (rdata !== wdata) error_count++; else $display("[T3] PASS");
+    // Simple aligned write/read
+    do_write(32'h0000_0010, 64'hA5A5_A5A5_1111_2222);
+    do_read (32'h0000_0010);
 
-      // TEST 4
-      wdata = 64'hDEAD_BEEF_FACE_CAFE;
-      master_write(32'h0000_0038, wdata);
-      master_read (32'h0000_0038, rdata);
-      if (rdata !== wdata) error_count++; else $display("[T4] PASS");
+    // Misaligned write
+    do_write(32'h0000_0013, 64'hDEAD_BEEF_CAFE_F00D);
+    do_read (32'h0000_0013);
 
-      // TEST 5
-      wdata = 64'hCAFEBABE_00112233;
-      $display("[T5] Expect DECERR …");
-      master_write(32'h0000_2000, wdata);
-      master_read (32'h0000_2000, rdata);
-      $display("[T5] DONE");
+    // Boundary write (last valid byte)
+    do_write(32'h0000_0FFF, 64'h1234_5678_9ABC_DEF0);
+    do_read (32'h0000_0FFF);
 
-      // TEST 6 — overwrite
-      w1 = 64'h1010_2020_3030_4040;
-      w2 = 64'h9999_AAAA_BBBB_CCCC;
-      master_write(32'h0000_0050, w1);
-      master_write(32'h0000_0050, w2);
-      master_read (32'h0000_0050, rdata);
-      if (rdata !== w2) error_count++; else $display("[T6] PASS");
+    // Out-of-range write
+    do_write(32'h0000_2000, 64'hFACE_FACE_FACE_FACE);
 
-      // TEST 7 — sparse writes
-      A = 64'hAAAA_FFFF_0000_1111;
-      B = 64'hBBBB_EEEE_2222_3333;
-      C = 64'hCCCC_DDDD_4444_5555;
-      master_write(32'h0000_0100, A);
-      master_write(32'h0000_0200, B);
-      master_write(32'h0000_0300, C);
-      master_read(32'h0000_0100, rdata); if (rdata !== A) error_count++; else $display("[T7-A] PASS");
-      master_read(32'h0000_0200, rdata); if (rdata !== B) error_count++; else $display("[T7-B] PASS");
-      master_read(32'h0000_0300, rdata); if (rdata !== C) error_count++; else $display("[T7-C] PASS");
+    // Out-of-range read
+    do_read(32'h0000_2000);
+    // Back-to-back AW/W cycles
+    for (int i = 0; i < 4; i++) begin
+        do_write(32'h0000_0100 + (i * 8), $random);
+    end
 
-      $display("\n===== TEST END =====");
-      $display("ERROR COUNT = %0d", error_count);
-      #40 $finish;
+    // Back-to-back AR cycles
+    for (int i = 0; i < 4; i++) begin 
+	    do_read(32'h0000_0100 + (i * 8));
+    end
+
+    // Stall R channel (manager mem busy)
+    tb_if.mem_flag[0] = 1;   // block R channel receive
+    fork
+      begin
+        do_read(32'h0000_0040);
+      end
+    join_none
+
+    repeat(10) @(posedge ACLK);
+    tb_if.mem_flag[0] = 0; // release
+    @(posedge ACLK);
+
+    // Write then immediate read
+    do_write(32'h0000_0200, 64'h1020_3040_5060_7080);
+    do_read (32'h0000_0200);
+
+    // Partial strobes (subordinate handles WSTRB)
+    @(posedge ACLK);
+    tb_if.mgr_tx_W  <= 64'hFF00_FF00_FF00_FF00;
+    tb_if.mgr_tx_AW <= 32'h0000_0300;
+    tb_if.tx_en[4]  <= 1;
+    tb_if.tx_en[3]  <= 1;
+    repeat(2) @(posedge ACLK);
+    tb_if.tx_en[4] <= 0;
+    tb_if.tx_en[3] <= 0;
+
+    wait(tb_if.mgr_new_data[2]);
+    do_read(32'h0000_0300);
+
+    $display("----------------------- AXI-LITE CORNER CASE TESTING COMPLETE -----------------------");
+
+    $finish;
   end
 
 endmodule
+

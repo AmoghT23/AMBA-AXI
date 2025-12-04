@@ -18,7 +18,6 @@ interface TB_if #(
 		);								// so manager and subordinate dont share any ports here
 	modport subordinate (							//besides tx_en for send control and new_data for viewing if data is sent
 		input sub_tx_R, sub_bresp, sub_rresp, tx_en, mem_flag,		// <<<<put the values you want to send in here,
-		output sub_rx_AW, sub_rx_W, sub_rx_AR, sub_new_data,   		// this is the values revieved
+		output sub_rx_AW, sub_rx_W, sub_rx_AR, sub_new_data   		// this is the values revieved
 		);							
 endinterface	
-

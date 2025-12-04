@@ -5,7 +5,7 @@ module RX_channel #(parameter WIDTH =8)(			//control signal between master and s
 	input 	logic VALID,
 	input   logic [WIDTH-1:0] xDATA,				//INCOMING DATA
 	output  logic [WIDTH-1:0] rx_data,			// grab the data
-	output 	logic rx_new_data,		//if latch has fresh data to store =1, when stored in memory =0 (latch→ fifo when we implement AXI full)
+	output 	logic rx_new_data,		//if latch has fresh data to store =1, when stored in memory =0 (latch? fifo when we implement AXI full)
 	input 	logic rx_hold		//wait for upper module to tell us that the data in the latch is serviced (data is stored somewhere)
 	);
 	//TX not permited to wait for ready to assert valid
@@ -26,7 +26,7 @@ module RX_channel #(parameter WIDTH =8)(			//control signal between master and s
 				end
 			HOLD:	begin 				//reciever not ready
 				READY=0;			//stop recieving new data /latch full			
-				if (!rx_hold) begin		//when data from latch→ memory then transfer ends.
+				if (!rx_hold) begin		//when data from latch? memory then transfer ends.
 					next_state = IDLE;	//wait until data is put in memory
 					
 				end
@@ -35,7 +35,7 @@ module RX_channel #(parameter WIDTH =8)(			//control signal between master and s
 		endcase
 	end
 	
-	always_ff @ (negedge rx_hold) rx_new_data <= 0;		//handshake within upper module, not on AXI bus
+	//always_ff @ (negedge rx_hold) rx_new_data <= 0;		//handshake within upper module, not on AXI bus
 		
 	always_ff @ (posedge ACLK, negedge ARESETn) begin 
 		if (!ARESETn) begin
