@@ -23,8 +23,8 @@ module TX_channel #(parameter WIDTH=8)(			//control signal between master and sl
 									
 				if (tx_en) begin			
 					VALID = 1;
-					if (READY) xDATA = tx_data;	//replace data when ready
-					else next_state = HOLD;		//hold when not ready
+					xDATA = tx_data;	//replace data when ready
+					if(!READY) next_state = HOLD;		//hold when not ready
 				end else begin					//tx_en ==0;
 				if (READY) begin				//if ready, signal accepted no new data
 					VALID = 0;					//when not holding

@@ -19,7 +19,7 @@ package axi_helper;
 	localparam int	RxDATA_W = DATA_LEN + 2;
 	typedef struct packed {			//this is how to add more lines to each channel bus
 		logic [DATA_LEN-1:0] data;
-		logic [WSTRB_LEN-1:0] wstrb;
+		logic [WSTRB_LEN-1:0] strb;
 	} WxDATA_t;
 	
 	typedef struct packed {
@@ -72,5 +72,3 @@ package axi_helper;
 	} RxDATA_t;
 	*/
 endpackage
-
-
