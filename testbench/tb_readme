@@ -1,95 +1,51 @@
-### **tb_top.sv**
-- Top-level integration testbench.
-- Instantiates the interface and DUT.
-- Calls write test → read test → compares readback.
-- Final PASS/FAIL based on functional readback.
+Author: Amogh and Jaswanthi
 
-### **tb_axi_lite_write.sv**
-- Drives a single-beat AXI4-Lite write.
-- AWLEN = 0, WLAST = 1, AWSIZE = 3 (64-bit).
-- Verifies AW/W/B handshake.
-- Verifies BRESP == OKAY.
-- Performs memory post-write checking inside the slave.
+This document provides an overview of the AXI4-Lite SystemVerilog testbench, its structure, simulation flow, supported test scenarios, and how to extend/debug it.
 
-### **tb_axi_lite_read.sv**
-- Drives a single-beat AXI4-Lite read.
-- ARLEN = 0, RLAST assumed internally.
-- Verifies AR/R handshake.
-- Verifies RRESP == OKAY.
-- Returns 64-bit read data to caller.
+The top_tb module verifies an AXI4-Lite Manager (Master) and Subordinate (Slave) pair using directed + corner-case stimulus.
 
-Test	Purpose
-T1	Basic aligned write/read
-T2	Different address + ID
-T3	High but valid near-boundary address
-T4	Alignment correctness
-T5	Out-of-range → DECERR
-T6	Overwrite same address
-T7	Sparse non-contiguous writes
+It uses:
+AXI4-Lite Interface (axi4_if)
+Manager → DUT (manager.sv)
+Subordinate → DUT (axi_subordinate.sv)
+TB Interface (TB_if.sv) for driving internal manager signals
 
+The primary goal of this TB is to exercise protocol behavior, corner cases, and error response handling (BRESP/RRESP).
 
+Testbench Architecture: 
 
-The testbench for reads:
-Drives read address signals on the manager side
-ARADDR = 0xFFFFFFFF, ARVALID = 1 (master requests read)
+axi4_if	AXI4-Lite interface connecting Manager ↔ Subordinate
+TB_if	Custom interface used to inject AW/W/AR transactions
+manager	DUT manager module (generates AXI transactions)
+axi_subordinate	AXI4-Lite slave memory model
 
-Simulates the slave’s readiness by controlling ARREADY.
+The TB provides two key reusable tasks.
 
-Scenarios tested:
-1. Master asserts ARVALID while slave is not ready -> ARVALID = 1 ARREADY = 0. No handshake should occur.
-2. Slave remains not ready for multiple cycles
-3. Slave becomes ready
-4. ARVALID deasserts after handshake
+do_write(addr, data) which drives:
 
-The testbench for writes:
-
-WRITE PATH (AXI4-Lite) – Testbench Overview
-
-The AXI4-Lite write testbench performs the following:
-
-Drives a single-beat write transaction
-
-AWLEN = 0
-
-WLAST = 1
-
-Full 8-byte WSTRB
-
-INCR burst type (AXI-Lite compliant)
-
-AW/W/B handshake verification
-
-AWVALID → AWREADY
-
-WVALID → WREADY
-
-BVALID → BREADY
-
-Checks BRESP
-
-Ensures correct OKAY response (2’b00)
-
-Verifies memory write
-
-Reads back 8 bytes from dut.mem[]
-
-Compares with the expected data
-
-This ensures correct behavior of the write datapath, including address acceptance, write-data acceptance, and generation of a write response.
-
-// Self Check Testbench for read
-
-The communication for a read operation involves two distinct channels: the Read Address Channel (AR) and the Read Data Channel (R). 
-The manager initiates the transaction, and the subordinate responds, adhering to the standard AXI handshake principle (VALID and READY).
-
-*** Tested on 3 Scenarios
-1. Basic Read Check (Mapped Address)
-2. Read Decode Error Check
-3. Sequential Read Accesses
+AW channel (manager_tx_AW)
+W channel (manager_tx_W)
+Enables AW + W using tx_en
+Waits for B-channel
+Prints result: PASS/FAIL
 
 
-How to Run
+do_read(addr) which drives:
 
-vlog ../rtl/*.sv tb_axi_lite_write.sv tb_axi_lite_read.sv tb_top.sv
-vsim tb_top
-run -all
+AR channel
+Waits for R-data
+Prints result: PASS/FAIL
+Both tasks automatically sync to the ACLK.
+
+Test Scenarios Implemented
+
+The TB runs a sequence of AXI-Lite corner cases, including:
+
+Aligned Write + Read -> Valid 64-bit aligned access
+Misaligned Access
+Boundary Condition
+Out-of-Range Access
+Back-to-Back AW/W and AR Sequences
+Write → Immediate Read Hazard
+Partial Write Strobes
+
