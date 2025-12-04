@@ -95,7 +95,7 @@ module top_tb;
       repeat(2) @(posedge ACLK);
 
       result = (axi_if.BRESP == '0) ? "PASS":"FAIL";
-      $display("Time:[%0t] OP:[WRITE] ADDR: @0x%08x DATA: %016x BRESP: %0d Result: %s",
+      $display("Time:[%0t] OP:[READ] ADDR: @0x%08x DATA: %016x BRESP: %0d Result: %s",
                $time,addr, axi_if.RDATA, axi_if.RRESP, result);
     end
   endtask
