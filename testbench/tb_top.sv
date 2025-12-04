@@ -1,3 +1,8 @@
+/*
+*  Author: Amogh and Jaswanthi
+*  Editors: Amogh and Jaswanthi
+*/
+
 `timescale 1ns/1ps
 
 import axi_helper::*;
