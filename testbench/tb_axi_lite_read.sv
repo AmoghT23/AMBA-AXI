@@ -1,37 +1,59 @@
-// ------------------------------------------------------------
-// AXI4-Lite READ task (64-bit)
-// ------------------------------------------------------------
-task automatic axi_lite_read(
-    input  logic [3:0]  id,
-    input  logic [31:0] addr,
-    output logic [63:0] data
+/*
+*  Author: Amogh Thakur
+*  Editors: Amogh Thakur
+*/
+
+// AXI Lite Read Task
+module do_read #
+(
+    parameter int ADDR_W = 32,
+    parameter int DATA_W = 64
+)
+(
+    input  logic                ACLK,
+    input  logic                ARESETn,
+
+    // AXI Lite master --> subordinate
+    output logic [ADDR_W-1:0]  ARADDR,
+    output logic                ARVALID,
+    input  logic                ARREADY,
+
+    // AXI Lite subordinate --> master
+    input  logic [DATA_W-1:0]   RDATA,
+    input  logic [1:0]          RRESP,
+    input  logic                RVALID,
+    output logic                RREADY
 );
 
-    $display("[TB] READ addr=%h", addr);
+    // Task for performing a single AXI Lite read
+    task automatic do_read(
+        input  logic [ADDR_W-1:0] addr_i,
+        output logic [DATA_W-1:0] data_out_i,
+        output logic [1:0]        rresp_i
+    );
+    begin
+        //  Issue AR 
+        ARADDR  <= addr_i;
+        ARVALID <= 1'b1;
+        RREADY  <= 1'b1;  // ready to accept read data
 
-    axi_if.manager_mp.ARID    <= id;
-    axi_if.manager_mp.ARADDR  <= addr;
-    axi_if.manager_mp.ARLEN   <= 0;
-    axi_if.manager_mp.ARSIZE  <= 3;
-    axi_if.manager_mp.ARBURST <= 1;
-    axi_if.manager_mp.ARVALID <= 1;
+        // Wait for subordinate to accept AR
+        wait (ARREADY && ARVALID);
+        @(posedge ACLK);   // synchronize with clock
+        ARVALID <= 1'b0;   // lower ARVALID once accepted
 
-    @(posedge ACLK);
-    while (!axi_if.manager_mp.ARREADY) @(posedge ACLK);
-    axi_if.manager_mp.ARVALID <= 0;
+        //  Wait for R
+        wait (RVALID && RREADY);
+        @(posedge ACLK);   // latch data
+        data_out_i = RDATA;
+        rresp_i    = RRESP;
 
-    axi_if.manager_mp.RREADY <= 1;
+        // Complete handshake
+        RREADY <= 1'b0;
+        @(posedge ACLK);
+    end
+    endtask
 
-    @(posedge ACLK);
-    while (!axi_if.manager_mp.RVALID) @(posedge ACLK);
+endmodule
 
-    data = axi_if.RDATA;
 
-    if (axi_if.RRESP != 0)
-        $error("RRESP error: %0b", axi_if.RRESP);
-
-    axi_if.manager_mp.RREADY <= 0;
-
-    $display("[TB] READ data=%h", data);
-
-endtask
